@@ -84,7 +84,7 @@ import { createHighlighter } from 'https://cdn.jsdelivr.net/npm/shiki@3.22.0/+es
 
 const { useState, useEffect, useRef, useCallback } = React;
 
-const SUMMARY = "The walkthrough skill turns a plain-English prompt into an interactive HTML diagram of your codebase. Claude reads the skill definition, launches parallel subagents to explore relevant code, synthesizes findings into a Mermaid flowchart or ER diagram, and outputs a self-contained HTML file with pan, zoom, and clickable nodes.";
+const SUMMARY = "The walkthrough skill turns a plain-English prompt into an interactive HTML diagram of your codebase. The AI agent reads the skill definition, launches parallel subagents to explore relevant code, synthesizes findings into a Mermaid flowchart or ER diagram, and outputs a self-contained HTML file with pan, zoom, and clickable nodes.";
 
 const DIAGRAM = `graph TD
   subgraph trigger["Trigger"]
@@ -156,7 +156,7 @@ const NODES = {
   },
   skillDefinition: {
     title: "Skill Definition",
-    description: "The main skill file that defines the entire workflow Claude follows. It specifies the four-step process: understand scope, explore with subagents, choose diagram type, and generate HTML. Also contains the quality checklist and Mermaid conventions.",
+    description: "The main skill file that defines the entire workflow the AI agent follows. It specifies the four-step process: understand scope, explore with subagents, choose diagram type, and generate HTML. Also contains the quality checklist and Mermaid conventions.",
     files: ["skills/walkthrough/skill.md"],
     code: `---
 name: walkthrough
@@ -172,12 +172,12 @@ description: Generate interactive HTML walkthroughs
   },
   scopeUnderstanding: {
     title: "Scope Understanding",
-    description: "Claude clarifies what the user wants explained — a feature flow, data flow, architecture overview, request lifecycle, or database schema. The goal is to frame the walkthrough as a mental model with 5-12 key concepts.",
+    description: "The AI agent clarifies what the user wants explained — a feature flow, data flow, architecture overview, request lifecycle, or database schema. The goal is to frame the walkthrough as a mental model with 5-12 key concepts.",
     files: ["skills/walkthrough/skill.md:14-26"],
   },
   parallelExploration: {
     title: "Parallel Subagents",
-    description: "Claude launches 2-4 Explore subagents in parallel using the Task tool. Each agent investigates one area of the codebase and returns a structured report with node IDs, labels, purposes, connections, and file paths. This keeps the main context clean.",
+    description: "The AI agent launches 2-4 Explore subagents in parallel using the Task tool. Each agent investigates one area of the codebase and returns a structured report with node IDs, labels, purposes, connections, and file paths. This keeps the main context clean.",
     files: ["skills/walkthrough/skill.md:28-84"],
     code: `// Launch parallel Explore subagents
 Task(subagent_type: "Explore", prompt:
@@ -188,12 +188,12 @@ Task(subagent_type: "Explore", prompt:
   },
   synthesis: {
     title: "Synthesis",
-    description: "Once all subagents return, Claude combines their findings into a node list (ID, label, files, description), an edge list (connections with verb labels), and subgraph groupings. The target is 5-12 nodes total — each representing a concept, not a function.",
+    description: "Once all subagents return, the AI agent combines their findings into a node list (ID, label, files, description), an edge list (connections with verb labels), and subgraph groupings. The target is 5-12 nodes total — each representing a concept, not a function.",
     files: ["skills/walkthrough/skill.md:86-94"],
   },
   diagramSelection: {
     title: "Diagram Selection",
-    description: "Claude picks the right Mermaid diagram type based on the topic. Feature flows and architecture get flowcharts (graph TD/LR). Database schemas get ER diagrams. Mixed topics can use both side by side.",
+    description: "The AI agent picks the right Mermaid diagram type based on the topic. Feature flows and architecture get flowcharts (graph TD/LR). Database schemas get ER diagrams. Mixed topics can use both side by side.",
     files: ["skills/walkthrough/skill.md:96-167"],
   },
   htmlOutput: {
@@ -366,11 +366,21 @@ function MermaidDiagram({ onNodeClick }) {
   return h('div', { ref, className: 'mermaid-wrap' });
 }
 
-function Summary() {
+function Summary({ collapsed, onToggle }) {
+  if (collapsed) {
+    return h('div', {
+      onClick: onToggle,
+      className: 'fixed top-16 left-6 z-10 px-3 py-1.5 bg-wt-surface/60 backdrop-blur border border-wt-border rounded-full shadow-lg cursor-pointer hover:bg-wt-surface/80 transition-all duration-300'
+    },
+      h('span', { className: 'text-xs text-wt-muted font-medium' }, '\u2139\uFE0E Summary')
+    );
+  }
   return h('div', {
-    className: 'fixed top-16 left-6 z-10 max-w-lg px-4 py-3 bg-wt-surface/80 backdrop-blur border border-wt-border rounded-lg shadow-lg pointer-events-none'
+    onClick: onToggle,
+    className: 'fixed top-16 left-6 z-10 max-w-lg px-4 py-3 bg-wt-surface/80 backdrop-blur border border-wt-border rounded-lg shadow-lg cursor-pointer transition-all duration-300'
   },
-    h('p', { className: 'text-sm text-wt-muted leading-relaxed' }, SUMMARY)
+    h('p', { className: 'text-sm text-wt-muted leading-relaxed' }, SUMMARY),
+    h('p', { className: 'text-[0.65rem] text-wt-muted/50 mt-1.5' }, 'Click to dismiss')
   );
 }
 
@@ -421,21 +431,40 @@ function ZoomControls({ zoomDisplayRef, onZoomIn, onZoomOut, onFit }) {
 
 function App() {
   const [activeId, _setActiveId] = useState(null);
+  const [summaryCollapsed, setSummaryCollapsed] = useState(false);
   const pz = usePanZoom();
+
+  const collapseSummary = useCallback(() => {
+    setSummaryCollapsed(true);
+  }, []);
 
   const setActiveNode = useCallback((nodeId) => {
     _setActiveId(nodeId);
+    collapseSummary();
     document.querySelectorAll('.mermaid-wrap .node').forEach(n => { n.style.opacity = nodeId ? '0.4' : '1'; });
     if (nodeId) {
       const el = document.querySelector(`.mermaid-wrap .node[id*="${nodeId}"]`);
       if (el) el.style.opacity = '1';
     }
-  }, []);
+  }, [collapseSummary]);
 
   const closeDetail = useCallback(() => {
     _setActiveId(null);
     document.querySelectorAll('.mermaid-wrap .node').forEach(n => { n.style.opacity = '1'; });
   }, []);
+
+  // Auto-collapse summary on first pan/zoom interaction
+  useEffect(() => {
+    const vp = pz.viewportRef.current;
+    if (!vp) return;
+    const onInteract = () => { collapseSummary(); };
+    vp.addEventListener('wheel', onInteract, { once: true });
+    vp.addEventListener('pointerdown', onInteract, { once: true });
+    return () => {
+      vp.removeEventListener('wheel', onInteract);
+      vp.removeEventListener('pointerdown', onInteract);
+    };
+  }, [collapseSummary, pz.viewportRef]);
 
   useEffect(() => { setTimeout(pz.fitToScreen, 600); }, [pz.fitToScreen]);
 
@@ -444,7 +473,7 @@ function App() {
       h('h1', { className: 'text-base font-semibold text-wt-fg' }, 'How the Walkthrough Skill Works'),
       h('p', { className: 'text-sm text-wt-muted mt-0.5' }, 'From user prompt to interactive diagram — the full pipeline')
     ),
-    h(Summary),
+    h(Summary, { collapsed: summaryCollapsed, onToggle: () => setSummaryCollapsed(c => !c) }),
     h('div', { ref: pz.viewportRef, className: 'w-full h-screen overflow-hidden cursor-grab active:cursor-grabbing' },
       h('div', { ref: pz.canvasRef, className: 'origin-top-left will-change-transform inline-block p-[80px_60px_60px]' },
         h(MermaidDiagram, { onNodeClick: setActiveNode })
