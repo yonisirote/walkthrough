@@ -16,6 +16,8 @@ Ask Claude to walk you through any part of your codebase and it produces a self-
 
 The goal is fast onboarding: give a new developer a mental model of how something works in under 2 minutes. Not a code reference — a map.
 
+**[Live demo — walkthrough of the walkthrough skill itself](https://alexanderop.github.io/walkthrough/examples/walkthrough-how-it-works.html)**
+
 ![Generated walkthrough example](image.png)
 
 ## Usage
@@ -56,7 +58,7 @@ Claude will:
 ### Quick install
 
 ```bash
-npx @anthropic-ai/claude-code skills add alexanderopalic/walkthrough
+npx skills add https://github.com/alexanderop/walkthrough --skill walkthrough
 ```
 
 ### Manual install
