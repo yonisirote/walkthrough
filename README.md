@@ -4,6 +4,8 @@ An Opencode skill that generates interactive HTML walkthroughs with clickable Me
 
 This is a fork of [alexanderop/walkthrough](https://github.com/alexanderop/walkthrough), adapted for use with Opencode.
 
+**What's different:** This version extracts and displays actual code snippets from your codebase in the walkthrough, giving you concrete examples alongside the visual explanation.
+
 Inspired by [Amp's Shareable Walkthroughs](https://ampcode.com/news/walkthrough).
 
 ## What it does
